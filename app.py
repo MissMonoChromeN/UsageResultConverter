@@ -7,13 +7,13 @@ st.title("📶 容量実績変換ツール")
 
 # --- 説明文の追加 ---
 st.markdown("""
-CSVをアップロードして、データ利用量をGB単位に変換・集計します。
+CSVをアップロードして、データ利用量をGB単位に変換・集計します。<br>
 アップロードされたファイルから以下のサイトを自動で判定します。
 
 **↓対応サイト**
 * **GlocalMe**
 * **NWC**
-""")
+""", unsafe_allow_html=True) # ここに unsafe_allow_html=True を追加
 st.write("---")
 
 uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type="csv")
