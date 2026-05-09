@@ -4,7 +4,17 @@ import pandas as pd
 st.set_page_config(page_title="容量実績変換ツール", layout="centered")
 
 st.title("📶 容量実績変換ツール")
-st.write("CSVをアップロードして、データ利用量をGB単位に変換・集計します。")
+
+# --- 説明文の追加 ---
+st.markdown("""
+CSVをアップロードして、データ利用量をGB単位に変換・集計します。
+アップロードされたファイルから以下のサイトを自動で判定します。
+
+**↓対応サイト**
+* **GlocalMe**
+* **NWC**
+""")
+st.write("---")
 
 uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type="csv")
 
@@ -40,7 +50,6 @@ if uploaded_file is not None:
             df_res = df.copy()
             
             # --- 日付処理の強化 ---
-            # いったん文字列に変換してから日付として読み込む（20260405等の形式対策）
             df_res[date_col] = pd.to_datetime(df_res[date_col].astype(str), errors='coerce').dt.date
             
             # GBに統一計算
@@ -53,7 +62,6 @@ if uploaded_file is not None:
             display_df = df_res[[date_col, 'GB']].copy()
             display_df.columns = ['日付', '利用量(GB)']
             
-            # 日付がエラー（NaT）になった行がないか確認して表示
             st.dataframe(display_df, use_container_width=True)
 
             csv = display_df.to_csv(index=False).encode('utf-8-sig')
