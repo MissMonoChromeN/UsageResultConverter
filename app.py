@@ -1,12 +1,13 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Wi-Fiデータ集計ツール", layout="centered")
+st.set_page_config(page_title="容量実績変換ツール", layout="centered")
 
+# タイトルの変更
 st.title("📶 容量実績変換ツール")
-st.write("CSVをアップロードするだけで、自動で単位を判別してGBに変換します。")
+st.write("CSVをアップロードして、データ利用量をGB単位に変換・集計します。")
 
-uploaded_file = st.file_uploader("CSVファイルをアップロード・ドラッグ＆ドロップしてください", type="csv")
+uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type="csv")
 
 if uploaded_file is not None:
     try:
@@ -14,35 +15,49 @@ if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         cols = df.columns.tolist()
 
-        # 自動判定ロジック
+        # --- 自動判定ロジック ---
         template = "手動設定"
-        date_col, usage_col, unit = cols[0], cols[0], "MB" # 初期値
+        date_col, usage_col, unit = cols[0], cols[0], "MB" 
 
-        if 'Usaged_Byte' in cols:
+        if 'Usaged_Byte' in cols and 'IMEI' in cols:
             template, date_col, usage_col, unit = "GlocalMe形式", "Date", "Usaged_Byte", "Byte"
+        
+        elif '合計パケット(byte)' in cols and '対象明細日付' in cols:
+            template, date_col, usage_col, unit = "NWC形式", "対象明細日付", "合計パケット(byte)", "Byte"
+        
         elif 'Usaged' in cols:
             template, date_col, usage_col, unit = "MB形式", "Date", "Usaged", "MB"
 
-        # 設定の確認
-        with st.expander(f"判定: {template} (クリックで調整)", expanded=(template=="手動設定")):
+        # --- 設定の確認・調整 ---
+        with st.expander(f"判定結果: {template} (必要ならここを調整)", expanded=(template=="手動設定")):
             date_col = st.selectbox("日付の列", cols, index=cols.index(date_col) if date_col in cols else 0)
             usage_col = st.selectbox("データ量の列", cols, index=cols.index(usage_col) if usage_col in cols else 0)
             unit = st.radio("元の単位", ["Byte", "MB", "GB"], index=["Byte", "MB", "GB"].index(unit))
 
-        if st.button("計算・集計を実行"):
+        # --- 計算処理 ---
+        if st.button("変換・集計を実行"):
             df_res = df.copy()
-            df_res[date_col] = pd.to_datetime(df_res[date_col]).dt.date
             
-            # GB変換
+            # 日付の処理
+            df_res[date_col] = pd.to_datetime(df_res[date_col], format='mixed').dt.date
+            
+            # GBに統一計算
             div = {"Byte": 1024**3, "MB": 1024, "GB": 1}[unit]
-            df_res['利用量(GB)'] = (df_res[usage_col] / div).round(3)
+            # 小数点第2位までに丸める
+            df_res['GB'] = (df_res[usage_col] / div).round(2)
 
             # 結果表示
-            st.success(f"✅ 合計: {df_res['利用量(GB)'].sum():.2f} GB")
-            st.dataframe(df_res[[date_col, usage_col, '利用量(GB)']], use_container_width=True)
+            st.success(f"✅ {template} として集計完了！ 合計: {df_res['GB'].sum():.2f} GB")
+            
+            # 表示する列を「日付」と「GB」だけに絞る
+            display_df = df_res[[date_col, 'GB']].copy()
+            display_df.columns = ['日付', '利用量(GB)']
+            
+            st.dataframe(display_df, use_container_width=True)
 
-            # ダウンロード
-            csv = df_res.to_csv(index=False).encode('utf-8-sig')
-            st.download_button("結果を保存", data=csv, file_name="converted.csv")
+            # エクスポート用（ダウンロードも日付とGBだけにする）
+            csv = display_df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button("結果を保存 (CSV)", data=csv, file_name=f"容量実績_{template}.csv")
+
     except Exception as e:
-        st.error(f"エラー: {e}")
+        st.error(f"エラーが発生しました: {e}")
